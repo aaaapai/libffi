@@ -212,11 +212,11 @@ jobs:
         with:
           fetch-depth: 1
       - name: Build
-        uses: cross-platform-actions/action@v0.24.0
+        uses: cross-platform-actions/action@v0.25.0
         with:
           operating_system: freebsd
           architecture: x86-64
-          version: '13.2'
+          version: '13.3'
           memory: 4G
           shell: bash
           run: |
@@ -225,7 +225,7 @@ jobs:
             ./configure --disable-shared --with-pic || (cat */config.log ; exit 1)
             make
       - name: Upload artifact
-        run: aws s3 cp x86_64-unknown-freebsd13.2/.libs/libffi_convenience.a s3://lwjgl-build/nightly/freebsd/x64/core/libffi.a ${{env.S3_PARAMS}}
+        run: aws s3 cp x86_64-unknown-freebsd13.3/.libs/libffi_convenience.a s3://lwjgl-build/nightly/freebsd/x64/core/libffi.a ${{env.S3_PARAMS}}
 
   macos:
     name: macOS
