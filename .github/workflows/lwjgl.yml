@@ -40,6 +40,12 @@ jobs:
             -e 's/^#baseurl/baseurl/' \
             -e 's/mirror\.centos\.org/vault.centos.org/' \
             /etc/yum.repos.d/*.repo
+          yum -y install https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
+          yum -y install git
+      - name: Clone repository
+        run: git clone --depth 3 https://github.com/${{ github.repository }}.git .
+      - name: Configure yum
+        run: |
           yum -y install epel-release
           yum -y update
       - name: Install build dependencies
@@ -136,7 +142,7 @@ jobs:
 #        ARCH: [arm32, arm64, mips64, ppc64le, riscv64]
 #        include:
 #          # -----
-#          - ARCH: arm32
+#          - ARCH arm32
 #            CROSS_ARCH: armhf
 #            CONTAINER: ubuntu:18.04
 #            TRIPLET: arm-linux-gnueabihf
@@ -208,6 +214,15 @@ jobs:
     strategy:
       fail-fast: false
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build
+        uses: cross-platform-actions/action@v0.27.0
+        with:
+          operating_system: freebsd
+          architecture: x86-64
+          version: '13.4'
       - uses: actions/checkout@v3
         with:
           fetch-depth: 1
@@ -225,8 +240,6 @@ jobs:
             ./configure --disable-shared --with-pic || (cat */config.log ; exit 1)
             make
       - name: Upload artifact
-        run: aws s3 cp x86_64-unknown-freebsd13.3/.libs/libffi_convenience.a s3://lwjgl-build/nightly/freebsd/x64/core/libffi.a ${{env.S3_PARAMS}}
-
   macos:
     name: macOS
     runs-on: macos-latest
@@ -248,7 +261,6 @@ jobs:
             LDFLAGS: -target aarch64-apple-darwin -arch arm64 -mmacosx-version-min=11.0
             HOST: aarch64
     steps:
-      - uses: actions/checkout@v3
         with:
           fetch-depth: 1
       - name: Install dependencies
@@ -292,11 +304,19 @@ jobs:
       run:
         shell: cmd
     steps:
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install dependencies
+        uses: egor-tensin/setup-cygwin@v4
+===
       - uses: actions/checkout@v3
         with:
           fetch-depth: 1
       - name: Install dependencies
         uses: egor-tensin/setup-cygwin@v3
+>>>
         with:
           platform: x64
           install-dir: C:\cygwin
@@ -311,7 +331,7 @@ jobs:
           ./configure \
             CC="$PWD/msvcc.sh -DUSE_STATIC_RTL ${{matrix.MSVC_SH}}" \
             CXX="$PWD/msvcc.sh -DUSE_STATIC_RTL ${{matrix.MSVC_SH}}" \
-            LD='link' \
+            LD='link' d\
             CPP='cl -nologo -EP' \
             CXXCPP='cl -nologo -EP' \
             CPPFLAGS='-DFFI_BUILDING_DLL -DUSE_STATIC_RTL' \
