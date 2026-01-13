@@ -16,7 +16,7 @@ jobs:
     name: Linux
     runs-on: ubuntu-latest
     container:
-      image: almalinux:8
+     image: centos:7
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +51,7 @@ jobs:
       - name: Build
         run: |
           source /opt/rh/gcc-toolset-15/enable || true
+          source scl_source enable devtoolset-11 || true
           make
       - name: Upload artifact
         run: aws s3 cp ${{matrix.HOST}}/.libs/libffi_convenience.a s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/core/libffi.a ${{env.S3_PARAMS}}
@@ -61,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ARCH: [arm32, arm64, ppc64le, riscv64]
+        ARCH: [arm32, arm64, mips64, ppc64le, riscv64]
         include:
           # -----
           - ARCH: arm32
@@ -195,9 +196,7 @@ jobs:
           # -----
           - ARCH: arm64
             SOURCE_ARCH: aarch64
-            VCTOOLS: ARM64
-            #MSVC_ARCH: amd64_arm64
-            MSVC_ARCH: arm64
+            MSVC_ARCH: amd64_arm64
             MSVC_SH: -marm64
             HOST: aarch64-pc-cygwin
     defaults:
@@ -205,6 +204,7 @@ jobs:
         shell: cmd
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Install dependencies
@@ -256,5 +256,6 @@ jobs:
           call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\VsDevCmd.bat" -host_arch=amd64 -arch=${{matrix.MSVC_ARCH}}
           cl.exe
           C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr build.sh
+        shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
       - name: Upload artifact
         run: aws s3 cp ${{matrix.HOST}}\.libs\libffi_convenience.lib s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/core/libffi.lib ${{env.S3_PARAMS}}
