@@ -72,8 +72,8 @@ EOF
 
 AM_MAINTAINER_MODE
 
-AC_CHECK_HEADERS(sys/memfd.h)
-AC_CHECK_FUNCS([memfd_create])
+#AC_CHECK_HEADERS(sys/memfd.h)
+#AC_CHECK_FUNCS([memfd_create])
 
 dnl The -no-testsuite modules omit the test subdir.
 AM_CONDITIONAL(TESTSUBDIR, test -d $srcdir/testsuite)
@@ -228,7 +228,6 @@ AC_ARG_ENABLE(pax_emutramp,
       [Define this if you want to enable pax emulated trampolines (experimental)])
   fi)
 
-LT_SYS_SYMBOL_USCORE
 if test "x$sys_symbol_underscore" = xyes; then
     AC_DEFINE(SYMBOL_UNDERSCORE, 1, [Define if symbols are underscored.])
 fi
