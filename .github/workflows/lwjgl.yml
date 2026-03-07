@@ -16,7 +16,7 @@ jobs:
     name: Linux
     runs-on: ubuntu-latest
     container:
-     image: centos:7
+      image: almalinux:8
     strategy:
       fail-fast: false
       matrix:
@@ -51,7 +51,6 @@ jobs:
       - name: Build
         run: |
           source /opt/rh/gcc-toolset-15/enable || true
-          source scl_source enable devtoolset-11 || true
           make
       - name: Upload artifact
         run: aws s3 cp ${{matrix.HOST}}/.libs/libffi_convenience.a s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/core/libffi.a ${{env.S3_PARAMS}}
@@ -89,7 +88,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v6
-        with:
+        with
           fetch-depth: 1
       - name: Install dependencies
         run: |
@@ -99,7 +98,7 @@ jobs:
             libc6-dev-${{matrix.CROSS_ARCH}}-cross
       - name: Install autoconf 2.72
         run: |
-          curl -L https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.gz | tar -xz
+          curl -L https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.gz | tar -x
           (cd autoconf-2.72; ./configure; make; sudo make install)
       - name: Configure build
         run: |
@@ -109,7 +108,6 @@ jobs:
         run: make
       - name: Upload artifact
         run: aws s3 cp ${{matrix.HOST}}/.libs/libffi_convenience.a s3://lwjgl-build/nightly/linux/${{matrix.ARCH}}/core/libffi.a ${{env.S3_PARAMS}}
-
   freebsd-cross:
     name: FreeBSD Cross
     runs-on: ubuntu-latest
@@ -119,7 +117,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
-      - name: Build
+      - name: Buil
         uses: cross-platform-actions/action@v0.32.0
         with:
           operating_system: freebsd
@@ -129,7 +127,7 @@ jobs:
           shell: bash
           run: |
             sudo pkg install -y m4 gmake automake libtool texinfo
-            ./autogen.sh
+            ./autogen.s
             ./configure --disable-shared --with-pic || (cat */config.log ; exit 1)
             make
       - name: Upload artifact
@@ -139,7 +137,7 @@ jobs:
     name: macOS
     runs-on: macos-latest
     strategy:
-      fail-fast: false
+      fail-fast: fals
       matrix:
         ARCH: [x64, arm64]
         include:
@@ -149,7 +147,7 @@ jobs:
             CFLAGS: -target x64-apple-darwin -arch x86_64 -mmacosx-version-min=10.11
             LDFLAGS: -target x64-apple-darwin -arch x86_64 -mmacosx-version-min=10.11
             HOST: x86_64
-          - ARCH: arm64
+          - ARCH: arm6
             DARWIN: 20
             CC: MACOSX_DEPLOYMENT_TARGET=11.0
             CFLAGS: -target aarch64-apple-darwin -arch arm64 -mmacosx-version-min=11.0
@@ -159,7 +157,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 1
-      - name: Install dependencies
+      - name: Install dependencie
         run: brew install automake libtool texinfo
       - name: Configure build
         run: |
@@ -169,7 +167,6 @@ jobs:
         run: ${{matrix.CC}} make all
       - name: Upload artifact
         run: aws s3 cp ${{matrix.HOST}}-apple-darwin${{matrix.DARWIN}}/.libs/libffi_convenience.a s3://lwjgl-build/nightly/macosx/${{matrix.ARCH}}/core/libffi.a ${{env.S3_PARAMS}}
-
   windows:
     name: Windows
     runs-on: windows-latest
@@ -179,7 +176,7 @@ jobs:
         ARCH: [x86, x64, arm64]
         include:
           # -----
-          - ARCH: x86
+          - ARCH: x8
             SOURCE_ARCH: x86
             VCTOOLS: x86.x64
             #MSVC_ARCH: amd64_x86
@@ -189,7 +186,7 @@ jobs:
           # -----
           - ARCH: x64
             SOURCE_ARCH: x86
-            VCTOOLS: x86.x64
+            VCTOOLS: x86.x6
             MSVC_ARCH: amd64
             MSVC_SH: -m64
             HOST: x86_64-pc-cygwin
@@ -204,58 +201,10 @@ jobs:
         shell: cmd
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Install dependencies
-        uses: egor-tensin/setup-cygwin@v4
-        with:
-          #platform: x64
-          install-dir: C:\cygwin
-          packages: wget autoconf automake libtool
-#      - uses: ilammy/msvc-dev-cmd@v1
-#        with:
-#          arch: ${{ matrix.MSVC_ARCH }}
-      - name: Install Visual Studio 2026 Build Tools
-        shell: pwsh
-        run: |
-          choco install visualstudio2026buildtools --package-parameters "`
-            --add Microsoft.VisualStudio.Workload.VCTools `
-            --add Microsoft.VisualStudio.Component.VC.Tools.${{matrix.VCTOOLS}} `
-            --includeRecommended `
-            --quiet" `
-            -y `
-            --ignore-package-exit-codes=3010
-      - name: Prepare build script
-        run: |
-          cat > build.sh <<'EOF'
-          cd $(cygpath $RUNNER_WORKSPACE)/libffi
-          ./autogen.sh
-          ./configure \
-            CC="$PWD/msvcc.sh -DUSE_STATIC_RTL ${{matrix.MSVC_SH}}" \
-            CXX="$PWD/msvcc.sh -DUSE_STATIC_RTL ${{matrix.MSVC_SH}}" \
-            LD='link' \
-            CPP='cl -nologo -EP' \
-            CXXCPP='cl -nologo -EP' \
-            CPPFLAGS='-DFFI_BUILDING_DLL -DUSE_STATIC_RTL' \
-            NM='dumpbin -symbols' \
-            STRIP=':' \
-            CONFIGURE_OPTIONS=--disable-shared \
-            --host=${{matrix.HOST}} \
-            || (cat */config.log ; exit 1)
-          cp src/${{matrix.SOURCE_ARCH}}/ffitarget.h include
-          make all
-          EOF
-          echo BUILD SCRIPT
-          echo ------------
-          cat build.sh
-          chmod +x build.sh
-        shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
-      - name: Build
-        run: |
+
           call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\VsDevCmd.bat" -host_arch=amd64 -arch=${{matrix.MSVC_ARCH}}
           cl.exe
           C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr build.sh
         shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
       - name: Upload artifact
-        run: aws s3 cp ${{matrix.HOST}}\.libs\libffi_convenience.lib s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/core/libffi.lib ${{env.S3_PARAMS}}
+        run: aws s3 cp ${{matrix.HOST}}\.libs\libffi_convenience.lib s3://lwjgl-build/nightly/windows/${{matrix.ARCH}}/core/l
