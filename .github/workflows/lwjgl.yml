@@ -88,8 +88,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v7
-        with:
+      - uses: actions/checkout@v6
+        with
           fetch-depth: 1
       - name: Install dependencies
         run: |
@@ -101,6 +101,17 @@ jobs:
         run: |
           PATH=$HOME/i/bin:$PATH ./autogen.sh
           ./configure --disable-shared --with-pic CC=${{matrix.TRIPLET}}-gcc-${{matrix.GCC}} --host=${{matrix.HOST}} || (cat */config.log ; exit 1)
+          DEBIAN_FRONTEND=noninteractive sudo apt-get -yq install m4 make automake libtool texinfo \
+            gcc-12-${{matrix.TRIPLET}} \
+            libc6-dev-${{matrix.CROSS_ARCH}}-cross
+      - name: Install autoconf 2.72
+        run: |
+          curl -L https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.gz | tar -x
+          (cd autoconf-2.72; ./configure; make; sudo make install)
+      - name: Configure build
+        run: |
+          PATH=$HOME/i/bin:$PATH ./autogen.sh
+          ./configure --disable-shared --with-pic CC=${{matrix.TRIPLET}}-gcc-12 --host=${{matrix.HOST}} || (cat */config.log ; exit 1)
       - name: Build
         run: make
       - name: Upload artifact
