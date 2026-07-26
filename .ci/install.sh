@@ -1,6 +1,30 @@
 #!/bin/bash
 set -x
 
+# Download the self-contained rlgl client from its GitHub releases into ./rlgl.
+# rlgl runs on *this* runner (not the build target), so select the binary by
+# the runner's own OS/arch.  Use a direct, version-pinned asset URL rather than
+# the GitHub API: the unauthenticated api.github.com is rate-limited (60/hr/IP)
+# and 403s under the CI matrix load, whereas release-asset downloads are not.
+RLGL_VERSION="${RLGL_VERSION:-2.0.4}"
+download_rlgl() {
+    local uname_s uname_m os arch url
+    uname_s=$(uname -s); uname_m=$(uname -m)
+    case "$uname_s" in
+        Darwin) os=darwin ;;
+        *)      os=linux ;;
+    esac
+    case "$uname_m" in
+        x86_64|amd64)  arch=amd64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *) echo "No rlgl binary available for $uname_s/$uname_m"; return 1 ;;
+    esac
+    url="https://github.com/atgreen/red-light-green-light/releases/download/v${RLGL_VERSION}/rlgl-${RLGL_VERSION}-${os}-${arch}.tar.gz"
+    echo "Downloading rlgl: $url"
+    curl -fsSL --retry 3 "$url" | tar -xzf - rlgl
+    chmod +x rlgl
+}
+
 if [[ $RUNNER_OS != 'Linux' ]]; then
     brew update --verbose
     # brew update > brew-update.log 2>&1
@@ -8,34 +32,22 @@ if [[ $RUNNER_OS != 'Linux' ]]; then
     brew uninstall libtool;
     brew install automake libtool dejagnu gcc@15;
 
-    # Download and extract the rlgl client
-    wget -qO - https://rl.gl/cli/rlgl-darwin-amd64.tgz | \
-	      tar --strip-components=2 -xvzf - ./rlgl/rlgl;
+    # Download the rlgl client (macOS build path evaluates results with it)
+    download_rlgl
 
 else
-    # Download and extract the rlgl client
-    case $HOST in
-	      aarch64-*linux-gnu)
-	          wget -qO - https://rl.gl/cli/rlgl-linux-arm.tgz | \
-		            tar --strip-components=2 -xvzf - ./rlgl/rlgl;
-	          ;;
-	      ppc64le-linux-gnu)
-	          wget -qO - https://rl.gl/cli/rlgl-linux-ppc64le.tgz | \
-		            tar --strip-components=2 -xvzf - ./rlgl/rlgl;
-	          ;;
-	      s390x-linux-gnu)
-	          wget -qO - https://rl.gl/cli/rlgl-linux-s390x.tgz | \
-		            tar --strip-components=2 -xvzf - ./rlgl/rlgl;
-	          ;;
-	      *)
-	          wget -qO - https://rl.gl/cli/rlgl-linux-amd64.tgz | \
-		            tar --strip-components=2 -xvzf - ./rlgl/rlgl;
-	          ;;
-    esac
+    # Download the rlgl client for the runner's architecture
+    download_rlgl
 
     sudo apt-get clean # clear the cache
     sudo apt-get update
     sudo apt install libltdl-dev zip
+
+    # Cross + qemu-user targets: install the Debian cross toolchain for $HOST
+    # and qemu-user-static (registers binfmt so test binaries run emulated).
+    if [ -n "${CROSS_QEMU:-}" ]; then
+        sudo apt-get install -y gcc-${HOST} g++-${HOST} qemu-user-static
+    fi
 
     case $HOST in
 	      mips64el-linux-gnu | sparc64-linux-gnu)
@@ -44,7 +56,8 @@ else
 	          sudo apt-get install qemu-user-static
 	          ;;
 	      hppa-linux-gnu )
-	          sudo apt-get install -y qemu-user-static g++-5-hppa-linux-gnu
+	          # The gcc/g++-hppa-linux-gnu cross toolchain and qemu-user-static
+	          # are installed by the CROSS_QEMU block above; nothing extra here.
 	          ;;
 	      i386-pc-linux-gnu)
 	          sudo apt-get install gcc-multilib g++-multilib;
